@@ -54,7 +54,8 @@ def translator_chain(string):
 
 def hex2rgb(h):
     h = h.lstrip('#')
-    return tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
+    return tuple(int(h[i:i + 2], 16) for i in (0, 2, 4))
+
 
 class Renderer(str, Enum):
     default = "default"
@@ -62,16 +63,19 @@ class Renderer(str, Enum):
     manga2EngPillow = "manga2eng_pillow"
     none = "none"
 
+
 class Alignment(str, Enum):
     auto = "auto"
     left = "left"
     center = "center"
     right = "right"
 
+
 class Direction(str, Enum):
     auto = "auto"
     h = "horizontal"
     v = "vertical"
+
 
 class InpaintPrecision(str, Enum):
     fp32 = "fp32"
@@ -81,6 +85,7 @@ class InpaintPrecision(str, Enum):
     def __str__(self):
         return self.name
 
+
 class Detector(str, Enum):
     default = "default"
     dbconvnext = "dbconvnext"
@@ -88,6 +93,7 @@ class Detector(str, Enum):
     craft = "craft"
     paddle = "paddle"
     none = "none"
+
 
 class Inpainter(str, Enum):
     default = "default"
@@ -97,15 +103,18 @@ class Inpainter(str, Enum):
     none = "none"
     original = "original"
 
+
 class Colorizer(str, Enum):
     none = "none"
     mc2 = "mc2"
+
 
 class Ocr(str, Enum):
     ocr32px = "32px"
     ocr48px = "48px"
     ocr48px_ctc = "48px_ctc"
     mocr = "mocr"
+
 
 class Translator(str, Enum):
     youdao = "youdao"
@@ -150,6 +159,7 @@ class Upscaler(str, Enum):
     esrgan = "esrgan"
     upscler4xultrasharp = "4xultrasharp"
 
+
 class RenderConfig(BaseModel):
     renderer: Renderer = Renderer.default
     """Render english text translated from manga with some additional typesetting. Ignores some other argument options"""
@@ -178,9 +188,10 @@ class RenderConfig(BaseModel):
     font_size: Optional[int] = None
     """Use fixed font size for rendering"""
     rtl: bool = True
-    """Right-to-left reading order for panel and text_region sorting,"""  
+    """Right-to-left reading order for panel and text_region sorting,"""
     _font_color_fg = None
     _font_color_bg = None
+
     @property
     def font_color_fg(self):
         if self.font_color and not self._font_color_fg:
@@ -197,13 +208,14 @@ class RenderConfig(BaseModel):
     def font_color_bg(self):
         if self.font_color and not self._font_color_bg:
             colors = self.font_color.split(':')
-            try:              
+            try:
                 self._font_color_fg = hex2rgb(colors[0]) if colors[0] else None
                 self._font_color_bg = hex2rgb(colors[1]) if len(colors) > 1 and colors[1] else None
             except:
                 raise Exception(
                     f'Invalid --font-color value: {self.font_color}. Use a hex value such as FF0000')
         return self._font_color_bg
+
 
 class UpscaleConfig(BaseModel):
     upscaler: Upscaler = Upscaler.esrgan
@@ -213,10 +225,11 @@ class UpscaleConfig(BaseModel):
     upscale_ratio: Optional[int] = None
     """Image upscale ratio applied before detection. Can improve text detection."""
 
+
 class TranslatorConfig(BaseModel):
     translator: Translator = Translator.sugoi
     """Language translator to use"""
-    target_lang: str = 'ENG' #todo: validate VALID_LANGUAGES #todo: convert to enum
+    target_lang: str = 'ENG'  # todo: validate VALID_LANGUAGES #todo: convert to enum
     """Destination language"""
     no_text_lang_skip: bool = False
     """Dont skip text that is seemingly already in the target language."""
@@ -228,7 +241,7 @@ class TranslatorConfig(BaseModel):
     """Output of one translator goes in another. Example: --translator-chain "google:JPN;sugoi:ENG"."""
     selective_translation: Optional[str] = None
     """Select a translator based on detected language in image. Note the first translation service acts as default if the language isn\'t defined. Example: --translator-chain "google:JPN;sugoi:ENG".'"""
-    
+
     # 译后检查配置项
     enable_post_translation_check: bool = True
     """Enable post-translation validation check"""
@@ -236,9 +249,9 @@ class TranslatorConfig(BaseModel):
     """Maximum retry attempts for failed translation validation"""
     post_check_repetition_threshold: int = 20
     """Minimum number of consecutive repetitions to trigger hallucination detection"""
-    post_check_target_lang_threshold: float = 0.5  
+    post_check_target_lang_threshold: float = 0.5
     """Minimum ratio of target language in translation text for ratio check"""
-    
+
     _translator_gen = None
     _gpt_config = None
 
@@ -246,8 +259,8 @@ class TranslatorConfig(BaseModel):
     def translator_gen(self):
         if self._translator_gen is None:
             if self.selective_translation is not None:
-                #todo: refactor TranslatorChain
-                trans =  translator_chain(self.selective_translation)
+                # todo: refactor TranslatorChain
+                trans = translator_chain(self.selective_translation)
                 trans.target_lang = self.target_lang
                 self._translator_gen = trans
             elif self.translator_chain is not None:
@@ -261,14 +274,14 @@ class TranslatorConfig(BaseModel):
     @property
     def chatgpt_config(self):
         if self.gpt_config is not None and self._gpt_config is None:
-            #todo: load from already loaded file
+            # todo: load from already loaded file
             self._gpt_config = OmegaConf.load(self.gpt_config)
         return self._gpt_config
 
 
 class DetectorConfig(BaseModel):
     """"""
-    detector: Detector =Detector.default
+    detector: Detector = Detector.default
     """"Text detector used for creating a text mask from an image, DO NOT use craft for manga, it\'s not designed for it"""
     detection_size: int = 2048
     """Size of image used for detection"""
@@ -287,6 +300,7 @@ class DetectorConfig(BaseModel):
     unclip_ratio: float = 2.3
     """How much to extend text skeleton to form bounding box"""
 
+
 class InpainterConfig(BaseModel):
     inpainter: Inpainter = Inpainter.lama_large
     """Inpainting model to use"""
@@ -295,6 +309,7 @@ class InpainterConfig(BaseModel):
     inpainting_precision: InpaintPrecision = InpaintPrecision.bf16
     """Inpainting precision for lama, use bf16 while you can."""
 
+
 class ColorizerConfig(BaseModel):
     colorization_size: int = 576
     """Size of image used for colorization. Set to -1 to use full image size"""
@@ -302,6 +317,7 @@ class ColorizerConfig(BaseModel):
     """Used by colorizer and affects color strength, range from 0 to 255 (default 30). -1 turns it off."""
     colorizer: Colorizer = Colorizer.none
     """Colorization model to use."""
+
 
 class OcrConfig(BaseModel):
     use_mocr_merge: bool = False
@@ -315,10 +331,11 @@ class OcrConfig(BaseModel):
     prob: float | None = None
     """Minimum probability of a text region to be considered valid. If None, uses the model default."""
 
+
 class Config(BaseModel):
     # Internal use for passing image name from server to translator
     _image_name: Optional[str] = None
-    
+
     # General
     filter_text: Optional[str] = None
     """Filter regions by their text with a regex. Example usage: '.*badtext.*'"""

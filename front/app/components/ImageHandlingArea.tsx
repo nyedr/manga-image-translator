@@ -1,8 +1,12 @@
-import React from "react";
-import { Icon } from "@iconify/react";
-import { fetchStatusText } from "@/utils/fetchStatusText";
+import React, { useState } from "react";
 import type { FileStatus } from "@/types";
-import PreviewImage from "./PreviewImage";
+import PreviewGroup from "./Image/PreviewGroup";
+import { Button } from "@/components/ui/button";
+import { ImageIcon, Trash2Icon, UploadIcon } from "lucide-react";
+import ImageItem from "./Image/ImageItem";
+
+// Helper component to handle individual image clicks
+
 export interface ImageHandlingAreaProps {
   files: File[];
   fileStatuses: Map<string, FileStatus>;
@@ -10,14 +14,16 @@ export interface ImageHandlingAreaProps {
   isProcessingAllFinished: boolean;
 
   handleFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  handleDrop: (e: React.DragEvent<HTMLLabelElement>) => void;
+  handleDrop: (e: React.DragEvent<HTMLDivElement>) => void;
   handleSubmit: () => void;
   clearForm: () => void;
   removeFile: (fileName: string) => void;
+  handleRetry: (fileName: string) => void;
+  handleDownloadAll: () => void;
 }
 
 /**
- * ファイルのアップロードやプレビュー、翻訳開始ボタンをまとめたコンポーネント
+ * A component for handling file uploads, previews, and translation initiation.
  */
 export const ImageHandlingArea: React.FC<ImageHandlingAreaProps> = ({
   files,
@@ -29,125 +35,147 @@ export const ImageHandlingArea: React.FC<ImageHandlingAreaProps> = ({
   handleSubmit,
   clearForm,
   removeFile,
+  handleRetry,
+  handleDownloadAll,
 }) => {
-  if (files.length > 0) {
-    console.log("UploadArea rendering", fileStatuses.get(files[0].name));
-  }
+  const [isDragging, setIsDragging] = useState(false);
+
+  const handleDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+  };
+
+  const openFileDialog = () => {
+    const input = document.getElementById("file-input");
+    if (input) {
+      input.click();
+    }
+  };
+
   return (
-    <div className="space-y-4 max-w-[1200px] mx-auto">
-      {!isProcessing && !isProcessingAllFinished && (
-        <form>
-          {/* Upload area */}
-          <label
-            htmlFor="file"
-            className="block p-4 border-2 border-dashed border-gray-300 rounded-lg"
-            onDrop={handleDrop}
-            onDragOver={(e) => e.preventDefault()}
-            onDragEnter={(e) => e.preventDefault()}
-            onDragLeave={(e) => e.preventDefault()}
-          >
-            <div className="text-center p-8">
-              <Icon
-                icon="carbon:cloud-upload"
-                className="w-8 h-8 mx-auto text-gray-500"
-              />
-              <div className="mt-2 text-gray-600">
-                Drop images here or click to select and upload images
-              </div>
-            </div>
-            <input
-              id="file"
-              type="file"
-              multiple
-              accept="image/png,image/jpeg,image/bmp,image/webp"
-              className="hidden"
-              onChange={handleFileChange}
-            />
-          </label>
-        </form>
-      )}
-      {/* Image grid */}
-      {files.length > 0 && (
-        <>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
-            {files.map((file) => {
-              const status = fileStatuses.get(file.name);
-              return (
-                <div key={file.name} className="relative">
-                  <div className="relative w-full min-h-[400px] max-h-[600px] group">
-                    {/* Delete button - displayed when uploading */}
-                    {!isProcessing && !isProcessingAllFinished && (
-                      <button
-                        type="button"
-                        onClick={() => removeFile(file.name)}
-                        className="absolute top-2 right-2 z-10 p-2 bg-red-500 rounded-lg text-white opacity-75 group-hover:opacity-100 transition-opacity hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
-                      >
-                        <Icon icon="carbon:trash-can" className="w-5 h-5" />
-                      </button>
-                    )}
-
-                    <PreviewImage
-                      file={file}
-                      result={status?.result as File | null}
+    <div className="space-y-4 max-w-[1200px] mx-auto size-full">
+      {/* Drop area */}
+      <div
+        onDragEnter={handleDragEnter}
+        onDragLeave={handleDragLeave}
+        onDragOver={handleDragOver}
+        onDrop={(e) => {
+          handleDrop(e);
+          setIsDragging(false);
+        }}
+        data-dragging={isDragging || undefined}
+        data-files={files.length > 0 || undefined}
+        className="border-input data-[dragging=true]:bg-accent/50 has-[input:focus]:border-ring has-[input:focus]:ring-ring/50 relative flex h-full min-h-52 flex-col items-center rounded-xl border border-dashed p-4 transition-colors not-data-[files]:justify-center has-[input:focus]:ring-[3px]"
+      >
+        <input
+          id="file-input"
+          type="file"
+          multiple
+          accept="image/png,image/jpeg,image/bmp,image/webp"
+          className="sr-only"
+          onChange={handleFileChange}
+          aria-label="Upload image file"
+        />
+        {files.length > 0 ? (
+          <div className="flex h-full w-full flex-col gap-3 overflow-y-auto">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="truncate text-sm font-medium">
+                Uploaded Files ({files.length})
+              </h3>
+              {!isProcessing && !isProcessingAllFinished && (
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" onClick={openFileDialog}>
+                    <UploadIcon
+                      className="-ms-0.5 size-3.5 opacity-60"
+                      aria-hidden="true"
                     />
-
-                    {/* Status overlay */}
-                    {status && status.status !== "finished" && (
-                      <div className="absolute inset-0 bg-black/50 flex items-center justify-center rounded-lg">
-                        <div className="text-white text-center px-6 py-3 text-lg">
-                          {fetchStatusText(
-                            status.status,
-                            status.progress,
-                            status.queuePos,
-                            status.error
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* File info */}
-                  <div className="mt-3 flex justify-between items-center px-2">
-                    <div className="text-base truncate max-w-[80%] text-gray-700">
-                      {file.name}
-                    </div>
-                    {status?.error ? (
-                      <div className="text-red-500 text-base flex items-center">
-                        <Icon icon="carbon:warning" className="w-5 h-5 mr-1" />
-                        Error
-                      </div>
-                    ) : status?.status === "finished" ? (
-                      <div className="text-green-500 flex items-center">
-                        <Icon icon="carbon:checkmark" className="w-5 h-5" />
-                      </div>
-                    ) : null}
-                  </div>
+                    Add more
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={clearForm}>
+                    <Trash2Icon
+                      className="-ms-0.5 size-3.5 opacity-60"
+                      aria-hidden="true"
+                    />
+                    Remove all
+                  </Button>
                 </div>
-              );
-            })}
+              )}
+            </div>
+            <div className="flex-1 p-1 overflow-y-auto overflow-x-hidden">
+              <PreviewGroup
+                items={files.map((file) => {
+                  const status = fileStatuses.get(file.name);
+                  return status?.result
+                    ? URL.createObjectURL(status.result)
+                    : URL.createObjectURL(file);
+                })}
+              >
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {files.map((file, index) => (
+                    <ImageItem
+                      key={file.name}
+                      file={file}
+                      index={index}
+                      status={fileStatuses.get(file.name)}
+                      isProcessing={isProcessing}
+                      isProcessingAllFinished={isProcessingAllFinished}
+                      removeFile={removeFile}
+                      handleRetry={handleRetry}
+                    />
+                  ))}
+                </div>
+              </PreviewGroup>
+            </div>
+            <div className="mt-4 flex flex-col items-center justify-between gap-4 sm:flex-row">
+              <div className="flex items-center gap-2">
+                {isProcessingAllFinished && (
+                  <>
+                    <Button onClick={handleDownloadAll} size="sm">
+                      Download All
+                    </Button>
+                    <Button onClick={clearForm} size="sm" variant="outline">
+                      Start Over
+                    </Button>
+                  </>
+                )}
+              </div>
+              {!isProcessing && !isProcessingAllFinished && (
+                <Button
+                  onClick={handleSubmit}
+                  disabled={files.length === 0}
+                  className="w-full sm:w-auto"
+                >
+                  Translate All Images
+                </Button>
+              )}
+            </div>
           </div>
-
-          {/* Submit button */}
-          {!isProcessing && !isProcessingAllFinished && (
-            <button
-              type="button"
-              className="w-full mt-8 py-4 px-6 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-lg"
-              disabled={files.length === 0}
-              onClick={handleSubmit}
+        ) : (
+          <div className="flex flex-col items-center justify-center px-4 py-3 text-center">
+            <div
+              className="bg-background mb-2 flex size-11 shrink-0 items-center justify-center rounded-full border"
+              aria-hidden="true"
             >
-              Translate All Images
-            </button>
-          )}
-          {isProcessingAllFinished && (
-            <button
-              onClick={clearForm}
-              className="w-full mt-8 py-4 px-6 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-lg"
-            >
-              Start Over
-            </button>
-          )}
-        </>
-      )}
+              <ImageIcon className="size-4 opacity-60" />
+            </div>
+            <p className="mb-1.5 text-sm font-medium">Drop your images here</p>
+            <p className="text-muted-foreground text-xs">
+              PNG, JPG, BMP, or WEBP
+            </p>
+            <Button variant="outline" className="mt-4" onClick={openFileDialog}>
+              <UploadIcon className="-ms-1 opacity-60" aria-hidden="true" />
+              Select images
+            </Button>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

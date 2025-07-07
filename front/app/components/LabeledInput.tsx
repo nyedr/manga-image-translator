@@ -1,5 +1,7 @@
 import React from "react";
 import { Icon } from "@iconify/react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 export type LabeledInputProps = {
   id: string;
@@ -23,16 +25,16 @@ export const LabeledInput: React.FC<LabeledInputProps> = ({
   onChange,
 }) => {
   return (
-    <div className="flex flex-col">
-      <label htmlFor={id} className="mb-1 text-sm text-gray-700 font-medium">
+    <div className="grid w-full items-center gap-1.5">
+      <Label htmlFor={id} className="text-sm font-medium">
         {label}
-      </label>
+      </Label>
       <div className="relative">
         <Icon
           icon={icon}
-          className="absolute top-1/2 left-2 -translate-y-1/2 text-gray-400"
+          className="absolute top-1/2 left-2 -translate-y-1/2 text-muted-foreground h-4 w-4"
         />
-        <input
+        <Input
           id={id}
           title={title}
           type={type}
@@ -41,7 +43,7 @@ export const LabeledInput: React.FC<LabeledInputProps> = ({
           onChange={(e) => {
             onChange(Number(e.target.value));
           }}
-          className="w-full appearance-none border border-gray-300 rounded pl-8 pr-3 py-1 text-sm text-gray-700 focus:border-blue-500 focus:outline-none"
+          className="pl-8"
         />
       </div>
     </div>

@@ -10,6 +10,7 @@ import { imageMimeTypes } from "@/config";
 import { OptionsPanel } from "@/components/OptionsPanel";
 import { ImageHandlingArea } from "@/components/ImageHandlingArea";
 import { Header } from "@/components/Header";
+import JSZip from "jszip";
 
 export const App: React.FC = () => {
   // State Hooks
@@ -20,17 +21,28 @@ export const App: React.FC = () => {
   const [files, setFiles] = useState<File[]>([]);
 
   // Translation Options State Hooks
-  const [detectionResolution, setDetectionResolution] = useState("1536");
+  const [detectionResolution, setDetectionResolution] = useState("2560");
   const [textDetector, setTextDetector] = useState("default");
   const [renderTextDirection, setRenderTextDirection] = useState("auto");
-  const [translator, setTranslator] = useState<TranslatorKey>("youdao");
-  const [targetLanguage, setTargetLanguage] = useState("CHS");
+  const [translator, setTranslator] = useState<TranslatorKey>("custom_openai");
+  const [targetLanguage, setTargetLanguage] = useState("ENG");
 
-  const [inpaintingSize, setInpaintingSize] = useState("2048");
-  const [customUnclipRatio, setCustomUnclipRatio] = useState<number>(2.3);
+  const [inpaintingSize, setInpaintingSize] = useState("2560");
+  const [customUnclipRatio, setCustomUnclipRatio] = useState<number>(2.6);
   const [customBoxThreshold, setCustomBoxThreshold] = useState<number>(0.7);
-  const [maskDilationOffset, setMaskDilationOffset] = useState<number>(30);
-  const [inpainter, setInpainter] = useState("default");
+  const [maskDilationOffset, setMaskDilationOffset] = useState<number>(45);
+  const [inpainter, setInpainter] = useState("lama_large");
+
+  const [renderer, setRenderer] = useState("manga2eng");
+  const [noHyphenation, setNoHyphenation] = useState(true);
+  const [fontSizeOffset, setFontSizeOffset] = useState(0);
+  const [fontPath, setFontPath] = useState("fonts/anime_ace_3.ttf");
+
+  const [fontSizeMinimum, setFontSizeMinimum] = useState<number | null>(-1);
+  const [fontSize, setFontSize] = useState<number | null>(null);
+  const [lineSpacing, setLineSpacing] = useState<number | null>(null);
+  const [ocr, setOcr] = useState("48px");
+  const [ignoreBubble, setIgnoreBubble] = useState(0);
 
   // Computed State (useMemo)
   const isProcessing = useMemo(() => {
@@ -91,7 +103,7 @@ export const App: React.FC = () => {
   };
 
   /** ドラッグ＆ドロップ対応 */
-  const handleDrop = (e: React.DragEvent<HTMLLabelElement>) => {
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     const droppedFiles = Array.from(e.dataTransfer?.files || []);
     const validFiles = droppedFiles.filter((file) =>
@@ -139,7 +151,13 @@ export const App: React.FC = () => {
         unclip_ratio: customUnclipRatio,
       },
       render: {
+        renderer: renderer,
         direction: renderTextDirection,
+        no_hyphenation: noHyphenation,
+        font_size_offset: fontSizeOffset,
+        font_size_minimum: fontSizeMinimum,
+        font_size: fontSize,
+        line_spacing: lineSpacing,
       },
       translator: {
         translator: translator,
@@ -149,7 +167,12 @@ export const App: React.FC = () => {
         inpainter: inpainter,
         inpainting_size: inpaintingSize,
       },
+      ocr: {
+        ocr: ocr,
+        ignore_bubble: ignoreBubble,
+      },
       mask_dilation_offset: maskDilationOffset,
+      font_path: fontPath,
     });
   };
 
@@ -243,6 +266,40 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleRetry = (fileName: string) => {
+    const fileToRetry = files.find((f) => f.name === fileName);
+    if (fileToRetry) {
+      updateFileStatus(fileName, {
+        status: null,
+        progress: null,
+        queuePos: null,
+        result: null,
+        error: null,
+      });
+      const config = buildTranslationConfig();
+      processSingleFileStream(fileToRetry, config);
+    }
+  };
+
+  const handleDownloadAll = async () => {
+    const zip = new JSZip();
+    fileStatuses.forEach((status, fileName) => {
+      if (status.status === "finished" && status.result) {
+        zip.file(fileName, status.result);
+      }
+    });
+
+    if (Object.keys(zip.files).length > 0) {
+      const zipBlob = await zip.generateAsync({ type: "blob" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(zipBlob);
+      link.download = "translated_images.zip";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  };
+
   // Translation Processing - Overall Translation Batch Process
   const processTranslation = async () => {
     const config = buildTranslationConfig();
@@ -333,44 +390,62 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div>
+    <div className="flex flex-col h-screen">
       <Header />
-      <div className="bg-gray-100 min-h-screen flex flex-col pt-10 items-center">
-        <div className="bg-white shadow-md rounded-lg p-6 w-full max-w-4xl space-y-6">
-          <OptionsPanel
-            detectionResolution={detectionResolution}
-            textDetector={textDetector}
-            renderTextDirection={renderTextDirection}
-            translator={translator}
-            targetLanguage={targetLanguage}
-            inpaintingSize={inpaintingSize}
-            customUnclipRatio={customUnclipRatio}
-            customBoxThreshold={customBoxThreshold}
-            maskDilationOffset={maskDilationOffset}
-            inpainter={inpainter}
-            setDetectionResolution={setDetectionResolution}
-            setTextDetector={setTextDetector}
-            setRenderTextDirection={setRenderTextDirection}
-            setTranslator={setTranslator}
-            setTargetLanguage={setTargetLanguage}
-            setInpaintingSize={setInpaintingSize}
-            setCustomUnclipRatio={setCustomUnclipRatio}
-            setCustomBoxThreshold={setCustomBoxThreshold}
-            setMaskDilationOffset={setMaskDilationOffset}
-            setInpainter={setInpainter}
-          />
-          <ImageHandlingArea
-            files={files}
-            fileStatuses={fileStatuses}
-            isProcessing={isProcessing}
-            isProcessingAllFinished={isProcessingAllFinished}
-            handleFileChange={handleFileChange}
-            handleDrop={handleDrop}
-            handleSubmit={handleSubmit}
-            clearForm={clearForm}
-            removeFile={removeFile}
-          />
-        </div>
+      <div className="bg-slate-100 flex-1 flex max-h-[calc(100vh-64px)] overflow-y-hidden">
+        <OptionsPanel
+          detectionResolution={detectionResolution}
+          textDetector={textDetector}
+          renderTextDirection={renderTextDirection}
+          translator={translator}
+          targetLanguage={targetLanguage}
+          inpaintingSize={inpaintingSize}
+          customUnclipRatio={customUnclipRatio}
+          customBoxThreshold={customBoxThreshold}
+          maskDilationOffset={maskDilationOffset}
+          inpainter={inpainter}
+          setDetectionResolution={setDetectionResolution}
+          setTextDetector={setTextDetector}
+          setRenderTextDirection={setRenderTextDirection}
+          setTranslator={setTranslator}
+          setTargetLanguage={setTargetLanguage}
+          setInpaintingSize={setInpaintingSize}
+          setCustomUnclipRatio={setCustomUnclipRatio}
+          setCustomBoxThreshold={setCustomBoxThreshold}
+          setMaskDilationOffset={setMaskDilationOffset}
+          setInpainter={setInpainter}
+          renderer={renderer}
+          noHyphenation={noHyphenation}
+          fontSizeOffset={fontSizeOffset}
+          fontPath={fontPath}
+          setRenderer={setRenderer}
+          setNoHyphenation={setNoHyphenation}
+          setFontSizeOffset={setFontSizeOffset}
+          setFontPath={setFontPath}
+          fontSizeMinimum={fontSizeMinimum}
+          fontSize={fontSize}
+          lineSpacing={lineSpacing}
+          ocr={ocr}
+          ignoreBubble={ignoreBubble}
+          setFontSizeMinimum={setFontSizeMinimum}
+          setFontSize={setFontSize}
+          setLineSpacing={setLineSpacing}
+          setOcr={setOcr}
+          setIgnoreBubble={setIgnoreBubble}
+        />
+        <ImageHandlingArea
+          files={files}
+          fileStatuses={fileStatuses}
+          isProcessing={isProcessing}
+          isProcessingAllFinished={isProcessingAllFinished}
+          handleFileChange={handleFileChange}
+          handleDrop={handleDrop}
+          handleSubmit={handleSubmit}
+          clearForm={clearForm}
+          removeFile={removeFile}
+          handleRetry={handleRetry}
+          handleDownloadAll={handleDownloadAll}
+        />
       </div>
     </div>
   );
