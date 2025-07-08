@@ -26,13 +26,44 @@ export const App: React.FC = () => {
 
   // Settings Dialog State
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [customOpenAISettings, setCustomOpenAISettings] =
-    useState<CustomOpenAISettings>({
-      apiKey: "ollama",
+
+  // Local storage key for custom OpenAI settings
+  const STORAGE_KEY = "manga-translator-custom-openai-settings";
+
+  // Load settings from localStorage or use defaults
+  const loadSettingsFromStorage = (): CustomOpenAISettings => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        // Validate that all required fields exist
+        if (
+          parsed.apiKey !== undefined &&
+          parsed.apiBase !== undefined &&
+          parsed.model !== undefined &&
+          parsed.modelConf !== undefined
+        ) {
+          return parsed;
+        }
+      }
+    } catch (error) {
+      console.warn(
+        "Failed to load custom OpenAI settings from localStorage:",
+        error
+      );
+    }
+
+    // Return default settings if loading fails or no stored settings
+    return {
+      apiKey: "",
       apiBase: "http://localhost:11434/v1",
       model: "",
       modelConf: "",
-    });
+    };
+  };
+
+  const [customOpenAISettings, setCustomOpenAISettings] =
+    useState<CustomOpenAISettings>(loadSettingsFromStorage);
 
   // Translation Options State Hooks
   const [detectionResolution, setDetectionResolution] = useState("2560");
@@ -50,7 +81,7 @@ export const App: React.FC = () => {
   const [renderer, setRenderer] = useState("manga2eng");
   const [noHyphenation, setNoHyphenation] = useState(true);
   const [fontSizeOffset, setFontSizeOffset] = useState(0);
-  const [fontPath, setFontPath] = useState("fonts/anime_ace_3.ttf");
+  const [fontPath, setFontPath] = useState("fonts/NotoSansMonoCJK-VF.ttf.ttc");
 
   const [fontSizeMinimum, setFontSizeMinimum] = useState<number | null>(-1);
   const [fontSize, setFontSize] = useState<number | null>(null);
@@ -127,6 +158,7 @@ export const App: React.FC = () => {
 
   const handleSettingsSave = (settings: CustomOpenAISettings) => {
     setCustomOpenAISettings(settings);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
   };
 
   /** ドラッグ＆ドロップ対応 */
@@ -170,6 +202,27 @@ export const App: React.FC = () => {
 
   // Translation Processing - Configeration
   const buildTranslationConfig = (): string => {
+    // Helper function to convert localhost URLs to Docker-compatible URLs
+    const convertUrlForDocker = (url: string): string => {
+      if (!url) return url;
+
+      // Convert localhost to Docker networking
+      if (url.includes("localhost") || url.includes("127.0.0.1")) {
+        // For Windows/Mac Docker Desktop
+        if (
+          navigator.platform.includes("Win") ||
+          navigator.platform.includes("Mac")
+        ) {
+          return url.replace(/localhost|127\.0\.0\.1/g, "host.docker.internal");
+        }
+        // For Linux Docker
+        else {
+          return url.replace(/localhost|127\.0\.0\.1/g, "172.17.0.1");
+        }
+      }
+      return url;
+    };
+
     const translatorConfig: any = {
       translator: translator,
       target_lang: targetLanguage,
@@ -178,7 +231,9 @@ export const App: React.FC = () => {
     // Add custom OpenAI settings if using custom_openai translator
     if (translator === "custom_openai") {
       translatorConfig.custom_openai_api_key = customOpenAISettings.apiKey;
-      translatorConfig.custom_openai_api_base = customOpenAISettings.apiBase;
+      translatorConfig.custom_openai_api_base = convertUrlForDocker(
+        customOpenAISettings.apiBase
+      );
       translatorConfig.custom_openai_model = customOpenAISettings.model;
       translatorConfig.custom_openai_model_conf =
         customOpenAISettings.modelConf;

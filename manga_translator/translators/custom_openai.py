@@ -193,8 +193,24 @@ class CustomOpenAiTranslator(ConfigGPT, CommonTranslator):
 
             # self.logger.debug('-- GPT Response --\n' + response)
 
+            # Check for empty or None response
+            if not response:
+                self.logger.warning(f'Received empty or None response from API')
+                # Create empty translations for the expected query size
+                translations.extend([''] * query_size)
+                continue
+
             # Use regex to extract response
+            original_response = response  # Store original for debugging
             response = self.extract_capture_groups(response, rf"{self.rgx_capture}")
+
+            # Check if extraction failed
+            if not response:
+                self.logger.warning(f'Failed to extract content from API response using regex')
+                self.logger.debug(f'Original API response was: {repr(original_response)}')
+                # Create empty translations for the expected query size
+                translations.extend([''] * query_size)
+                continue
 
             # Sometimes it will return line like "<|9>demo", and we need to fix it.
 
@@ -214,13 +230,29 @@ class CustomOpenAiTranslator(ConfigGPT, CommonTranslator):
             # Immediately clean leading and trailing whitespace from each translation text
             new_translations = [t.strip() for t in new_translations]
 
-            # When there is only one query LLMs likes to exclude the <|1|>
-            if not new_translations[0].strip():
-                new_translations = new_translations[1:]
+            # Handle empty response case
+            if not new_translations:
+                self.logger.warning(f'Empty translation response received for prompt')
+                # Create empty translations for the expected query size
+                new_translations = [''] * query_size
+            else:
+                # When there is only one query LLMs likes to exclude the <|1|>
+                if not new_translations[0].strip():
+                    new_translations = new_translations[1:]
+
+                # If still empty after removing first empty item, handle gracefully
+                if not new_translations:
+                    self.logger.warning(f'All translations were empty after processing')
+                    new_translations = [''] * query_size
 
             if len(new_translations) <= 1 and query_size > 1:
                 # Try splitting by newlines instead
-                new_translations = re.split(r'\n', response)
+                fallback_translations = re.split(r'\n', response)
+                if fallback_translations and any(t.strip() for t in fallback_translations):
+                    new_translations = fallback_translations
+                else:
+                    # If even the fallback is empty, create empty translations
+                    new_translations = [''] * query_size
 
             if len(new_translations) > query_size:
                 new_translations = new_translations[: query_size]
@@ -264,4 +296,10 @@ class CustomOpenAiTranslator(ConfigGPT, CommonTranslator):
         self.token_count += response.usage.total_tokens
         self.token_count_last = response.usage.total_tokens
 
-        return response.choices[0].message.content
+        # Handle case where response content is None or empty
+        content = response.choices[0].message.content
+        if content is None:
+            self.logger.warning('API returned None content')
+            return ''
+
+        return content

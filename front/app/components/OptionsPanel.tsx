@@ -149,14 +149,16 @@ export const OptionsPanel: React.FC<OptionsPanelProps> = ({
             onChange={setRenderTextDirection}
             options={textDirectionOptions}
           />
-          <LabeledSelect
-            id="font"
-            label="Font"
-            icon="carbon:text-font"
-            value={fontPath}
-            onChange={(val) => setFontPath(val)}
-            options={fontOptions}
-          />
+          <div className="md:col-span-2">
+            <LabeledSelect
+              id="font"
+              label="Font"
+              icon="carbon:text-font"
+              value={fontPath}
+              onChange={(val) => setFontPath(val)}
+              options={fontOptions}
+            />
+          </div>
           <LabeledInput
             id="fontSizeOffset"
             label="Font Size Offset"
@@ -164,6 +166,7 @@ export const OptionsPanel: React.FC<OptionsPanelProps> = ({
             type="number"
             value={fontSizeOffset}
             onChange={(val) => setFontSizeOffset(Number(val))}
+            tooltip="Offset font size by a given amount. Positive numbers increase font size, negative decrease."
           />
           <LabeledInput
             id="fontSizeMinimum"
@@ -175,6 +178,7 @@ export const OptionsPanel: React.FC<OptionsPanelProps> = ({
             onChange={(val) =>
               setFontSizeMinimum(Number(val) === -1 ? null : Number(val))
             }
+            tooltip="Minimum output font size. Use -1 for automatic calculation (image_sides_sum/200)."
           />
           <LabeledInput
             id="fontSize"
@@ -186,6 +190,7 @@ export const OptionsPanel: React.FC<OptionsPanelProps> = ({
             onChange={(val) =>
               setFontSize(Number(val) === 0 ? null : Number(val))
             }
+            tooltip="Use a fixed font size for all text rendering. Set to 0 for automatic sizing."
           />
           <LabeledInput
             id="lineSpacing"
@@ -198,6 +203,7 @@ export const OptionsPanel: React.FC<OptionsPanelProps> = ({
             onChange={(val) =>
               setLineSpacing(Number(val) === 0 ? null : Number(val))
             }
+            tooltip="Line spacing multiplier. Default is 0.01 for horizontal text and 0.2 for vertical text."
           />
           <div className="flex items-center mt-2 md:col-span-2">
             <input
@@ -254,7 +260,8 @@ export const OptionsPanel: React.FC<OptionsPanelProps> = ({
           title="Unclip ratio"
           step={0.01}
           value={customUnclipRatio}
-          onChange={setCustomUnclipRatio}
+          onChange={(val) => setCustomUnclipRatio(Number(val))}
+          tooltip="Controls text region expansion during detection. Higher values expand regions more."
         />
         <LabeledInput
           id="boxThreshold"
@@ -263,7 +270,8 @@ export const OptionsPanel: React.FC<OptionsPanelProps> = ({
           title="Box threshold"
           step={0.01}
           value={customBoxThreshold}
-          onChange={setCustomBoxThreshold}
+          onChange={(val) => setCustomBoxThreshold(Number(val))}
+          tooltip="Threshold for text box generation. Lower values detect more text, higher values are more selective."
         />
         <LabeledInput
           id="maskDilationOffset"
@@ -272,7 +280,8 @@ export const OptionsPanel: React.FC<OptionsPanelProps> = ({
           title="Mask dilation offset"
           step={1}
           value={maskDilationOffset}
-          onChange={setMaskDilationOffset}
+          onChange={(val) => setMaskDilationOffset(Number(val))}
+          tooltip="Extends the text mask to remove leftover text pixels. Increase if original text remnants remain."
         />
       </div>
 
@@ -325,6 +334,7 @@ export const OptionsPanel: React.FC<OptionsPanelProps> = ({
             type="number"
             value={ignoreBubble}
             onChange={(val) => setIgnoreBubble(Number(val))}
+            tooltip="Threshold for ignoring text in non-bubble areas. Range 1-50, or 0 to disable. Recommendation: 5-10."
           />
         </div>
       </div>

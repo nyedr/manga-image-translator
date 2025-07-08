@@ -1,7 +1,17 @@
-import React, { Fragment, useState, useEffect } from "react";
-import { Dialog, Transition } from "@headlessui/react";
-import { Input } from "@/components/ui/input";
+import React, { useState, useEffect, useCallback } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { Icon } from "@iconify/react";
+import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
+import { LabeledInput } from "@/components/LabeledInput";
 
 export interface CustomOpenAISettings {
   apiKey: string;
@@ -24,187 +34,215 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
   onSave,
 }) => {
   const [formData, setFormData] = useState<CustomOpenAISettings>(settings);
+  const [modelOptions, setModelOptions] = useState<ComboboxOption[]>([]);
+  const [isLoadingModels, setIsLoadingModels] = useState(false);
+  const [modelError, setModelError] = useState<string | null>(null);
 
   // Update form data when settings prop changes
   useEffect(() => {
     setFormData(settings);
   }, [settings]);
 
-  const handleInputChange = (
-    field: keyof CustomOpenAISettings,
-    value: string
-  ) => {
-    setFormData((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
-  };
+  // Fetch models from OpenAI-compatible API
+  const fetchModels = useCallback(async (apiBase: string) => {
+    if (!apiBase || !apiBase.trim()) {
+      setModelOptions([]);
+      return;
+    }
+
+    setIsLoadingModels(true);
+    setModelError(null);
+
+    try {
+      // Normalize the API base URL
+      const baseUrl = apiBase.endsWith("/") ? apiBase.slice(0, -1) : apiBase;
+      const modelsUrl = baseUrl.endsWith("/v1")
+        ? `${baseUrl}/models`
+        : `${baseUrl}/v1/models`;
+
+      const response = await fetch(modelsUrl, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(
+          `Failed to fetch models: ${response.status} ${response.statusText}`
+        );
+      }
+
+      const data = await response.json();
+
+      if (data.data && Array.isArray(data.data)) {
+        const options: ComboboxOption[] = data.data.map((model: any) => ({
+          value: model.id,
+          label: model.id,
+        }));
+        setModelOptions(options);
+      } else {
+        throw new Error("Invalid response format from models endpoint");
+      }
+    } catch (error) {
+      console.error("Error fetching models:", error);
+      setModelError(
+        error instanceof Error ? error.message : "Failed to fetch models"
+      );
+      setModelOptions([]);
+    } finally {
+      setIsLoadingModels(false);
+    }
+  }, []);
+
+  // Fetch models when API base changes
+  useEffect(() => {
+    if (formData.apiBase) {
+      fetchModels(formData.apiBase);
+    }
+  }, [formData.apiBase, fetchModels]);
 
   const handleSave = () => {
     onSave(formData);
     onClose();
   };
 
-  const handleCancel = () => {
-    setFormData(settings); // Reset to original settings
-    onClose();
-  };
-
   const handleReset = () => {
-    setFormData({
-      apiKey: "ollama",
+    const defaultSettings: CustomOpenAISettings = {
+      apiKey: "",
       apiBase: "http://localhost:11434/v1",
       model: "",
       modelConf: "",
-    });
+    };
+    setFormData(defaultSettings);
+  };
+
+  const handleRefreshModels = () => {
+    if (formData.apiBase) {
+      fetchModels(formData.apiBase);
+    }
   };
 
   return (
-    <Transition appear show={isOpen} as={Fragment}>
-      <Dialog as="div" className="relative z-50" onClose={handleCancel}>
-        <Transition.Child
-          as={Fragment}
-          enter="ease-out duration-300"
-          enterFrom="opacity-0"
-          enterTo="opacity-100"
-          leave="ease-in duration-200"
-          leaveFrom="opacity-100"
-          leaveTo="opacity-0"
-        >
-          <div className="fixed inset-0 bg-black bg-opacity-25" />
-        </Transition.Child>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-[725px]">
+        <DialogHeader>
+          <DialogTitle>Custom OpenAI Settings</DialogTitle>
+          <DialogDescription>
+            Configure your custom OpenAI-compatible API settings. These will
+            override the default Docker image settings.
+          </DialogDescription>
+        </DialogHeader>
 
-        <div className="fixed inset-0 overflow-y-auto">
-          <div className="flex min-h-full items-center justify-center p-4 text-center">
-            <Transition.Child
-              as={Fragment}
-              enter="ease-out duration-300"
-              enterFrom="opacity-0 scale-95"
-              enterTo="opacity-100 scale-100"
-              leave="ease-in duration-200"
-              leaveFrom="opacity-100 scale-100"
-              leaveTo="opacity-0 scale-95"
-            >
-              <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
-                <Dialog.Title
-                  as="h3"
-                  className="text-lg font-medium leading-6 text-gray-900 mb-4"
-                >
-                  Custom OpenAI Settings
-                </Dialog.Title>
+        <div className="grid gap-6 py-4">
+          <LabeledInput
+            id="apiKey"
+            label="API Key"
+            icon="mdi:key-variant"
+            type="password"
+            value={formData.apiKey}
+            onChange={(value) =>
+              setFormData({ ...formData, apiKey: value as string })
+            }
+            placeholder="Enter your API key (e.g., ollama)"
+            tooltip="API key for authenticating with your OpenAI-compatible service. Not needed for local Ollama instances."
+          />
 
-                <div className="space-y-4">
-                  <div className="text-sm text-gray-600 mb-4">
-                    Configure custom OpenAI-compatible API settings for the
-                    custom_openai translator. These settings will override the
-                    default docker image configuration.
-                  </div>
+          <LabeledInput
+            id="apiBase"
+            label="API Base URL"
+            icon="mdi:web"
+            type="text"
+            value={formData.apiBase}
+            onChange={(value) =>
+              setFormData({ ...formData, apiBase: value as string })
+            }
+            placeholder="Enter base URL (e.g., http://localhost:11434/v1)"
+            tooltip="The base URL for your OpenAI-compatible API endpoint. For Ollama, this is typically http://localhost:11434/v1"
+          />
 
-                  <div className="grid w-full items-center gap-1.5">
-                    <Label htmlFor="api-key" className="text-sm font-medium">
-                      API Key
-                    </Label>
-                    <Input
-                      id="api-key"
-                      type="text"
-                      value={formData.apiKey}
-                      onChange={(e) =>
-                        handleInputChange("apiKey", e.target.value)
-                      }
-                      placeholder="ollama"
-                    />
-                    <div className="text-xs text-gray-500">
-                      API key for OpenAI-compatible services (not needed for
-                      Ollama)
-                    </div>
-                  </div>
+          <div className="grid w-full items-center gap-1.5">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm font-medium">Model Name</Label>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={handleRefreshModels}
+                disabled={isLoadingModels || !formData.apiBase}
+                className="h-auto p-1 text-xs"
+              >
+                <Icon
+                  icon={isLoadingModels ? "mdi:loading" : "mdi:refresh"}
+                  className={`h-3 w-3 ${isLoadingModels ? "animate-spin" : ""}`}
+                />
+                Refresh
+              </Button>
+            </div>
+            <Combobox
+              value={formData.model}
+              onChange={(value) => setFormData({ ...formData, model: value })}
+              options={modelOptions}
+              icon="mdi:brain"
+              placeholder={
+                isLoadingModels
+                  ? "Loading models..."
+                  : modelError
+                  ? "Error loading models"
+                  : modelOptions.length === 0
+                  ? "Enter API Base URL to load models"
+                  : "Select a model..."
+              }
+              searchPlaceholder="Search models..."
+              emptyMessage="No models found"
+              disabled={isLoadingModels || modelError !== null}
+            />
+            {modelError && (
+              <p className="text-sm text-destructive">{modelError}</p>
+            )}
+            {!modelError &&
+              modelOptions.length === 0 &&
+              !isLoadingModels &&
+              formData.apiBase && (
+                <p className="text-sm text-muted-foreground">
+                  No models found. Make sure the API base URL is correct and the
+                  service is running.
+                </p>
+              )}
+          </div>
 
-                  <div className="grid w-full items-center gap-1.5">
-                    <Label htmlFor="api-base" className="text-sm font-medium">
-                      API Base URL
-                    </Label>
-                    <Input
-                      id="api-base"
-                      type="text"
-                      value={formData.apiBase}
-                      onChange={(e) =>
-                        handleInputChange("apiBase", e.target.value)
-                      }
-                      placeholder="http://localhost:11434/v1"
-                    />
-                    <div className="text-xs text-gray-500">
-                      Base URL for the OpenAI-compatible API endpoint
-                    </div>
-                  </div>
+          <LabeledInput
+            id="modelConf"
+            label="Model Configuration Key"
+            icon="mdi:cog"
+            type="text"
+            value={formData.modelConf}
+            onChange={(value) =>
+              setFormData({ ...formData, modelConf: value as string })
+            }
+            placeholder="Optional: nested config key (e.g., my-model)"
+          />
 
-                  <div className="grid w-full items-center gap-1.5">
-                    <Label htmlFor="model" className="text-sm font-medium">
-                      Model
-                    </Label>
-                    <Input
-                      id="model"
-                      type="text"
-                      value={formData.model}
-                      onChange={(e) =>
-                        handleInputChange("model", e.target.value)
-                      }
-                      placeholder="e.g., qwen2.5:7b"
-                    />
-                    <div className="text-xs text-gray-500">
-                      Model name to use (ensure it's pulled and running)
-                    </div>
-                  </div>
-
-                  <div className="grid w-full items-center gap-1.5">
-                    <Label htmlFor="model-conf" className="text-sm font-medium">
-                      Model Configuration
-                    </Label>
-                    <Input
-                      id="model-conf"
-                      type="text"
-                      value={formData.modelConf}
-                      onChange={(e) =>
-                        handleInputChange("modelConf", e.target.value)
-                      }
-                      placeholder="e.g., qwen2"
-                    />
-                    <div className="text-xs text-gray-500">
-                      Model configuration key for additional settings
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-6 flex justify-between">
-                  <button
-                    type="button"
-                    className="inline-flex justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2"
-                    onClick={handleReset}
-                  >
-                    Reset to Defaults
-                  </button>
-
-                  <div className="flex space-x-3">
-                    <button
-                      type="button"
-                      className="inline-flex justify-center rounded-md border border-transparent bg-gray-100 px-4 py-2 text-sm font-medium text-gray-900 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2"
-                      onClick={handleCancel}
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      className="inline-flex justify-center rounded-md border border-transparent bg-teal-600 px-4 py-2 text-sm font-medium text-white hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2"
-                      onClick={handleSave}
-                    >
-                      Save Settings
-                    </button>
-                  </div>
-                </div>
-              </Dialog.Panel>
-            </Transition.Child>
+          <div className="text-sm text-muted-foreground">
+            <p>
+              <strong>Model Configuration Key:</strong> Used to specify
+              different configuration sections in your GPT config file. Default
+              is 'ollama', but providing a key like 'my-model' creates
+              'ollama.my-model' for separate model configurations.
+            </p>
           </div>
         </div>
-      </Dialog>
-    </Transition>
+
+        <DialogFooter className="gap-2">
+          <Button variant="outline" onClick={handleReset}>
+            Reset to Defaults
+          </Button>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button onClick={handleSave}>Save Settings</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 };
