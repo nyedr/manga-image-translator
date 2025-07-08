@@ -1,5 +1,7 @@
 docker-compose -f demo/doc/docker-compose-web-with-gpu.yml down && docker-compose -f demo/doc/docker-compose-web-with-gpu.yml up -d
 
+docker-compose -f demo/doc/docker-compose-web-with-gpu.yml up -d --build
+
 # Manga/Image Translator (English Readme)
 
 ## Last Updated: 2025/05/10

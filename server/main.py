@@ -304,8 +304,35 @@ def start_translator_client_proc(host: str, port: int, nonce: str, params: Names
         cmds.append('--models-ttl=%s' % params.models_ttl)
     if params.pre_dict:
         cmds.extend(['--pre-dict', params.pre_dict])
-    if params.pre_dict:
+    if params.post_dict:
         cmds.extend(['--post-dict', params.post_dict])
+    if params.font_path:
+        cmds.extend(['--font-path', params.font_path])
+    if params.attempts:
+        cmds.extend(['--attempts', str(params.attempts)])
+    if params.model_dir:
+        cmds.extend(['--model-dir', params.model_dir])
+    if params.kernel_size != 3:
+        cmds.extend(['--kernel-size', str(params.kernel_size)])
+    if params.context_size:
+        cmds.extend(['--context-size', str(params.context_size)])
+    if params.batch_size != 1:
+        cmds.extend(['--batch-size', str(params.batch_size)])
+    if params.batch_concurrent:
+        cmds.append('--batch-concurrent')
+    if params.disable_memory_optimization:
+        cmds.append('--disable-memory-optimization')
+
+    # Custom OpenAI configuration parameters
+    if params.custom_openai_api_key:
+        cmds.extend(['--custom-openai-api-key', params.custom_openai_api_key])
+    if params.custom_openai_api_base:
+        cmds.extend(['--custom-openai-api-base', params.custom_openai_api_base])
+    if params.custom_openai_model:
+        cmds.extend(['--custom-openai-model', params.custom_openai_model])
+    if params.custom_openai_model_conf:
+        cmds.extend(['--custom-openai-model-conf', params.custom_openai_model_conf])
+
     base_path = os.path.dirname(os.path.abspath(__file__))
     parent = os.path.dirname(base_path)
     proc = subprocess.Popen(cmds, cwd=parent)

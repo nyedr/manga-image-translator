@@ -10,6 +10,7 @@ from .upscaling import UPSCALERS
 from .colorization import COLORIZERS
 from .save import OUTPUT_FORMATS
 
+
 def url_decode(s):
     s = unquote(s)
     if s.startswith('file:///'):
@@ -17,6 +18,8 @@ def url_decode(s):
     return s
 
 # Additional argparse types
+
+
 def path(string):
     if not string:
         return ''
@@ -25,6 +28,7 @@ def path(string):
         raise argparse.ArgumentTypeError(f'No such file or directory: "{string}"')
     return s
 
+
 def file_path(string):
     if not string:
         return ''
@@ -32,6 +36,7 @@ def file_path(string):
     if not os.path.exists(s):
         raise argparse.ArgumentTypeError(f'No such file: "{string}"')
     return s
+
 
 def dir_path(string):
     if not string:
@@ -50,6 +55,7 @@ def dir_path(string):
 #                     raise argparse.ArgumentTypeError(f'Invalid choice: %s (choose from %s)' % (s, ', '.join(map(repr, choices))))
 #         return string
 #     return _func
+
 
 class HelpFormatter(argparse.HelpFormatter):
     INDENT_INCREMENT = 2
@@ -76,30 +82,41 @@ class HelpFormatter(argparse.HelpFormatter):
         else:
             return super()._format_action_invocation(action)
 
+
 def general_parser(g_parser):
     g_parser.add_argument('-v', '--verbose', action='store_true',
-                        help='Print debug info and save intermediate images in result folder')
+                          help='Print debug info and save intermediate images in result folder')
     g_parser.add_argument('--attempts', default=0, type=int,
-                        help='Retry attempts on encountered error. -1 means infinite times.')
+                          help='Retry attempts on encountered error. -1 means infinite times.')
     g_parser.add_argument('--ignore-errors', action='store_true', help='Skip image on encountered error.')
     g_parser.add_argument('--model-dir', default=None, type=dir_path,
-                        help='Model directory (by default ./models in project root)')
+                          help='Model directory (by default ./models in project root)')
     g = g_parser.add_mutually_exclusive_group()
     g.add_argument('--use-gpu', action='store_true', help='Turn on/off gpu (auto switch between mps and cuda)')
     g.add_argument('--use-gpu-limited', action='store_true', help='Turn on/off gpu (excluding offline translator)')
     g_parser.add_argument('--font-path', default='', type=file_path, help='Path to font file')
     g_parser.add_argument('--pre-dict', default=None, type=file_path, help='Path to the pre-translation dictionary file')
     g_parser.add_argument('--post-dict', default=None, type=file_path,
-                        help='Path to the post-translation dictionary file')
+                          help='Path to the post-translation dictionary file')
     g_parser.add_argument('--kernel-size', default=3, type=int,
-                        help='Set the convolution kernel size of the text erasure area to completely clean up text residues')
+                          help='Set the convolution kernel size of the text erasure area to completely clean up text residues')
     g_parser.add_argument('--context-size', default=0, type=int, help='Pages of context are needed for translating the current page')
     g_parser.add_argument('--batch-size', default=1, type=int,
-                        help='Number of images to process in each batch for translation. Default is 1 (no batching)')
+                          help='Number of images to process in each batch for translation. Default is 1 (no batching)')
     g_parser.add_argument('--batch-concurrent', action='store_true',
-                        help='Use concurrent mode for batch translation - process each image separately instead of merging into large batches. Helps prevent model output truncation and hallucination.')
+                          help='Use concurrent mode for batch translation - process each image separately instead of merging into large batches. Helps prevent model output truncation and hallucination.')
     g_parser.add_argument('--disable-memory-optimization', action='store_true',
-                        help='Disable automatic memory optimization during processing')
+                          help='Disable automatic memory optimization during processing')
+
+    # Custom OpenAI configuration arguments
+    g_parser.add_argument('--custom-openai-api-key', default=None, type=str,
+                          help='API key for custom OpenAI-compatible services (e.g., Ollama)')
+    g_parser.add_argument('--custom-openai-api-base', default=None, type=str,
+                          help='Base URL for custom OpenAI-compatible API endpoints')
+    g_parser.add_argument('--custom-openai-model', default=None, type=str,
+                          help='Model name to use with custom OpenAI-compatible services')
+    g_parser.add_argument('--custom-openai-model-conf', default=None, type=str,
+                          help='Model configuration key for custom OpenAI services')
 
 
 def reparse(arr: list):
@@ -108,6 +125,7 @@ def reparse(arr: list):
                                      formatter_class=HelpFormatter)
     general_parser(p)
     return p.parse_args(arr)
+
 
 parser = argparse.ArgumentParser(prog='manga_translator', description='Seamlessly translate mangas into a chosen language', formatter_class=HelpFormatter)
 general_parser(parser)
@@ -142,7 +160,7 @@ parser_api = subparsers.add_parser('shared', help='Run in API mode')
 parser_api.add_argument('--host', default='127.0.0.1', type=str, help='Host for API service')
 parser_api.add_argument('--port', default=5003, type=int, help='Port for API service')
 parser_api.add_argument('--nonce', default=os.getenv('MT_WEB_NONCE', ''), type=str, help='Nonce for securing internal API server communication')
-parser_api.add_argument("--report", default=None,type=str, help='reports to server to register instance')
+parser_api.add_argument("--report", default=None, type=str, help='reports to server to register instance')
 parser_api.add_argument('--models-ttl', default='0', type=int, help='models TTL in memory in seconds')
 
 subparsers.add_parser('config-help', help='Print help information for config file')

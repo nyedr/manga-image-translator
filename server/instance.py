@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from manga_translator import Config
 from server.sent_data_internal import fetch_data_stream, NotifyType, fetch_data
 
+
 class ExecutorInstance(BaseModel):
     ip: str
     port: int
@@ -16,20 +17,21 @@ class ExecutorInstance(BaseModel):
         self.busy = False
 
     async def sent(self, image: Image, config: Config):
-        return await fetch_data("http://"+self.ip+":"+str(self.port)+"/simple_execute/translate", image, config)
+        return await fetch_data("http://" + self.ip + ":" + str(self.port) + "/simple_execute/translate", image, config)
 
     async def sent_stream(self, image: Image, config: Config, sender: NotifyType):
-        await fetch_data_stream("http://"+self.ip+":"+str(self.port)+"/execute/translate", image, config, sender)
+        await fetch_data_stream("http://" + self.ip + ":" + str(self.port) + "/execute/translate", image, config, sender)
 
     async def sent_batch(self, images: List[Image.Image], config: Config, batch_size: int):
         """发送批量翻译请求"""
-        return await fetch_data("http://"+self.ip+":"+str(self.port)+"/simple_execute/translate_batch", 
-                               {"images": images, "config": config, "batch_size": batch_size})
+        return await fetch_data("http://" + self.ip + ":" + str(self.port) + "/simple_execute/translate_batch",
+                                {"images": images, "config": config, "batch_size": batch_size})
 
     async def sent_batch_stream(self, images: List[Image.Image], config: Config, batch_size: int, sender: NotifyType):
         """发送批量翻译流式请求"""
-        await fetch_data_stream("http://"+self.ip+":"+str(self.port)+"/execute/translate_batch",
-                               {"images": images, "config": config, "batch_size": batch_size}, config, sender)
+        await fetch_data_stream("http://" + self.ip + ":" + str(self.port) + "/execute/translate_batch",
+                                {"images": images, "config": config, "batch_size": batch_size}, config, sender)
+
 
 class Executors:
     def __init__(self):
@@ -48,7 +50,7 @@ class Executors:
             instance = next((x for x in self.list if x.busy == False), None)
             if instance is not None:
                 return instance
-            #todo: cricial error: warn should never happen
+            # todo: cricial error: warn should never happen
             await self.event.wait()
 
     async def find_executor(self) -> ExecutorInstance:
@@ -63,5 +65,6 @@ class Executors:
         self.event.set()
         self.event.clear()
         await task_queue.update_event()
+
 
 executor_instances: Executors = Executors()

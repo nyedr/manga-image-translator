@@ -242,6 +242,16 @@ class TranslatorConfig(BaseModel):
     selective_translation: Optional[str] = None
     """Select a translator based on detected language in image. Note the first translation service acts as default if the language isn\'t defined. Example: --translator-chain "google:JPN;sugoi:ENG".'"""
 
+    # Custom OpenAI configuration parameters
+    custom_openai_api_key: Optional[str] = None
+    """API key for custom OpenAI-compatible services (e.g., Ollama)"""
+    custom_openai_api_base: Optional[str] = None
+    """Base URL for custom OpenAI-compatible API endpoints"""
+    custom_openai_model: Optional[str] = None
+    """Model name to use with custom OpenAI-compatible services"""
+    custom_openai_model_conf: Optional[str] = None
+    """Model configuration key for custom OpenAI services"""
+
     # 译后检查配置项
     enable_post_translation_check: bool = True
     """Enable post-translation validation check"""

@@ -10,6 +10,10 @@ import { imageMimeTypes } from "@/config";
 import { OptionsPanel } from "@/components/OptionsPanel";
 import { ImageHandlingArea } from "@/components/ImageHandlingArea";
 import { Header } from "@/components/Header";
+import {
+  SettingsDialog,
+  type CustomOpenAISettings,
+} from "@/components/SettingsDialog";
 import JSZip from "jszip";
 
 export const App: React.FC = () => {
@@ -19,6 +23,16 @@ export const App: React.FC = () => {
   );
   const [shouldTranslate, setShouldTranslate] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
+
+  // Settings Dialog State
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [customOpenAISettings, setCustomOpenAISettings] =
+    useState<CustomOpenAISettings>({
+      apiKey: "ollama",
+      apiBase: "http://localhost:11434/v1",
+      model: "",
+      modelConf: "",
+    });
 
   // Translation Options State Hooks
   const [detectionResolution, setDetectionResolution] = useState("2560");
@@ -102,6 +116,19 @@ export const App: React.FC = () => {
     setFileStatuses(() => new Map());
   };
 
+  // Settings Dialog Handlers
+  const handleSettingsClick = () => {
+    setIsSettingsOpen(true);
+  };
+
+  const handleSettingsClose = () => {
+    setIsSettingsOpen(false);
+  };
+
+  const handleSettingsSave = (settings: CustomOpenAISettings) => {
+    setCustomOpenAISettings(settings);
+  };
+
   /** ドラッグ＆ドロップ対応 */
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -143,6 +170,20 @@ export const App: React.FC = () => {
 
   // Translation Processing - Configeration
   const buildTranslationConfig = (): string => {
+    const translatorConfig: any = {
+      translator: translator,
+      target_lang: targetLanguage,
+    };
+
+    // Add custom OpenAI settings if using custom_openai translator
+    if (translator === "custom_openai") {
+      translatorConfig.custom_openai_api_key = customOpenAISettings.apiKey;
+      translatorConfig.custom_openai_api_base = customOpenAISettings.apiBase;
+      translatorConfig.custom_openai_model = customOpenAISettings.model;
+      translatorConfig.custom_openai_model_conf =
+        customOpenAISettings.modelConf;
+    }
+
     return JSON.stringify({
       detector: {
         detector: textDetector,
@@ -159,10 +200,7 @@ export const App: React.FC = () => {
         font_size: fontSize,
         line_spacing: lineSpacing,
       },
-      translator: {
-        translator: translator,
-        target_lang: targetLanguage,
-      },
+      translator: translatorConfig,
       inpainter: {
         inpainter: inpainter,
         inpainting_size: inpaintingSize,
@@ -391,7 +429,13 @@ export const App: React.FC = () => {
 
   return (
     <div className="flex flex-col h-screen">
-      <Header />
+      <Header onSettingsClick={handleSettingsClick} />
+      <SettingsDialog
+        isOpen={isSettingsOpen}
+        onClose={handleSettingsClose}
+        onSave={handleSettingsSave}
+        settings={customOpenAISettings}
+      />
       <div className="bg-slate-100 flex-1 flex max-h-[calc(100vh-64px)] overflow-y-hidden">
         <OptionsPanel
           detectionResolution={detectionResolution}

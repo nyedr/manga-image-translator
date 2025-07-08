@@ -34,38 +34,68 @@ class CustomOpenAiTranslator(ConfigGPT, CommonTranslator):
     def __init__(self, model=None, api_base=None, api_key=None, check_openai_key=False):
         # If the user has specified a nested key to use for the model, append the key
         #   Otherwise: Use the `ollama` defaults.
-        _CONFIG_KEY='ollama'
+        _CONFIG_KEY = 'ollama'
         if CUSTOM_OPENAI_MODEL_CONF:
-            _CONFIG_KEY+=f".{CUSTOM_OPENAI_MODEL_CONF}"
+            _CONFIG_KEY += f".{CUSTOM_OPENAI_MODEL_CONF}"
 
         ConfigGPT.__init__(self, config_key=_CONFIG_KEY)
         self.model = model
         CommonTranslator.__init__(self)
-        self.client = openai.AsyncOpenAI(api_key=api_key or CUSTOM_OPENAI_API_KEY or "ollama") # required, but unused for ollama
-        self.client.base_url = api_base or CUSTOM_OPENAI_API_BASE
+
+        # Initialize with defaults or provided values
+        # These will be updated when parse_args is called with actual config
+        self.api_key = api_key or CUSTOM_OPENAI_API_KEY or "ollama"
+        self.api_base = api_base or CUSTOM_OPENAI_API_BASE
+        self.model_name = model or CUSTOM_OPENAI_MODEL
+        self.model_conf = CUSTOM_OPENAI_MODEL_CONF
+
+        # Initialize client with current values (will be re-initialized in parse_args if config provided)
+        self.client = openai.AsyncOpenAI(api_key=self.api_key)
+        self.client.base_url = self.api_base
         self.token_count = 0
         self.token_count_last = 0
 
     def parse_args(self, args: TranslatorConfig):
         self.config = args.chatgpt_config
 
+        # Update custom OpenAI parameters from config if provided
+        if args.custom_openai_api_key:
+            self.api_key = args.custom_openai_api_key
+        if args.custom_openai_api_base:
+            self.api_base = args.custom_openai_api_base
+        if args.custom_openai_model:
+            self.model_name = args.custom_openai_model
+        if args.custom_openai_model_conf:
+            self.model_conf = args.custom_openai_model_conf
+
+        # Update config key if model_conf changed
+        _CONFIG_KEY = 'ollama'
+        if self.model_conf:
+            _CONFIG_KEY += f".{self.model_conf}"
+        # Re-initialize ConfigGPT with new config key if needed
+        if hasattr(self, '_config_key') and self._config_key != _CONFIG_KEY:
+            ConfigGPT.__init__(self, config_key=_CONFIG_KEY)
+
+        # Re-initialize the OpenAI client with updated parameters
+        self.client = openai.AsyncOpenAI(api_key=self.api_key)
+        self.client.base_url = self.api_base
 
     def extract_capture_groups(self, text, regex=r"(.*)"):
         """
         Extracts all capture groups from matches and concatenates them into a single string.
-        
+
         :param text: The multi-line text to search.
         :param regex: The regex pattern with capture groups.
         :return: A concatenated string of all matched groups.
         """
         pattern = re.compile(regex, re.DOTALL)  # DOTALL to match across multiple lines
         matches = pattern.findall(text)  # Find all matches
-        
+
         # Ensure matches are concatonated (handles multiple groups per match)
         extracted_text = "\n".join(
             "\n".join(m) if isinstance(m, tuple) else m for m in matches
         )
-        
+
         return extracted_text.strip() if extracted_text else None
 
     def _assemble_prompts(self, from_lang: str, to_lang: str, queries: List[str]):
@@ -162,23 +192,21 @@ class CustomOpenAiTranslator(ConfigGPT, CommonTranslator):
                     await asyncio.sleep(1)
 
             # self.logger.debug('-- GPT Response --\n' + response)
-            
 
-            # Use regex to extract response 
-            response=self.extract_capture_groups(response, rf"{self.rgx_capture}")
-
+            # Use regex to extract response
+            response = self.extract_capture_groups(response, rf"{self.rgx_capture}")
 
             # Sometimes it will return line like "<|9>demo", and we need to fix it.
+
             def add_pipe(match):
                 number = match.group(1)
                 return f"<|{number}|>"
             response = re.sub(r"<\|?(\d+)\|?>", add_pipe, response)
-            
 
             # self.logger.debug('-- GPT Response (filtered) --\n' + response)
 
             # @NOTE: This should *should* be superflous now, due to `extract_capture_groups`:
-            # 
+            #
             # Remove any text preceeding the first translation.
             new_translations = re.split(r'<\|\d+\|>', 'pre_1\n' + response)[1:]
             # new_translations = re.split(r'<\|\d+\|>', response)
@@ -222,7 +250,7 @@ class CustomOpenAiTranslator(ConfigGPT, CommonTranslator):
         messages.append({'role': 'user', 'content': prompt})
 
         response = await self.client.chat.completions.create(
-            model=self.model or CUSTOM_OPENAI_MODEL,
+            model=self.model_name or CUSTOM_OPENAI_MODEL,
             messages=messages,
             max_tokens=self._MAX_TOKENS // 2,
             temperature=self.temperature,
@@ -232,7 +260,6 @@ class CustomOpenAiTranslator(ConfigGPT, CommonTranslator):
         self.logger.debug('\n-- GPT Response (raw) --')
         self.logger.debug(response.choices[0].message.content)
         self.logger.debug('------------------------\n')
-
 
         self.token_count += response.usage.total_tokens
         self.token_count_last = response.usage.total_tokens

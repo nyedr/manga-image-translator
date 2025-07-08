@@ -1,13 +1,13 @@
-version: "3.8"
-
 services:
   manga_image_translator:
-    image: zyddnys/manga-image-translator:main
+    build:
+      context: ../..
+      dockerfile: Dockerfile
     container_name: manga_image_translator_gpu
 
     # run the server
     entrypoint: python
-    command: server/main.py --verbose --start-instance --host=0.0.0.0 --port=5003 --use-gpu
+    command: server/main.py --verbose --start-instance --host=0.0.0.0 --port=5003 --use-gpu --font-path /app/fonts/NotoSansMonoCJK-VF.ttf.ttc
 
     # enable GPU
     gpus: all
@@ -17,6 +17,7 @@ services:
     volumes:
       - ../../result:/app/result
       - ../../server:/app/server
+      - ../../manga_translator:/app/manga_translator
 
     ports:
       - "5003:5003"
@@ -25,7 +26,7 @@ services:
       # Ollama / “custom openai” settings
       CUSTOM_OPENAI_API_KEY: "ollama"
       CUSTOM_OPENAI_API_BASE: "http://host.docker.internal:11434/v1"
-      CUSTOM_OPENAI_MODEL: "qwen2.5vl:7b"
+      CUSTOM_OPENAI_MODEL: "gemma3:12b"
       # you can leave the rest blank or fill in any others you need:
       OPENAI_API_KEY: ""
       OPENAI_API_BASE: ""

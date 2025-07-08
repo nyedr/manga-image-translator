@@ -9,6 +9,7 @@ from manga_translator import Config
 
 NotifyType = Optional[Callable[[int, Optional[bytes]], None]]
 
+
 async def fetch_data_stream(url, image: Image, config: Config, sender: NotifyType, headers: Mapping[str, str] = {}):
     attributes = {"image": image, "config": config}
     data = pickle.dumps(attributes)
@@ -19,6 +20,7 @@ async def fetch_data_stream(url, image: Image, config: Config, sender: NotifyTyp
                 await process_stream(response, sender)
             else:
                 raise HTTPException(response.status, detail=await response.text())
+
 
 async def fetch_data(url, image: Image, config: Config, headers: Mapping[str, str] = {}):
     attributes = {"image": image, "config": config}
@@ -31,6 +33,7 @@ async def fetch_data(url, image: Image, config: Config, headers: Mapping[str, st
             else:
                 raise HTTPException(response.status, detail=await response.text())
 
+
 async def process_stream(response, sender: NotifyType):
     buffer = b''
 
@@ -38,7 +41,6 @@ async def process_stream(response, sender: NotifyType):
         if chunk:
             buffer += chunk
             buffer = handle_buffer(buffer, sender)
-
 
 
 def handle_buffer(buffer, sender: NotifyType):
@@ -59,4 +61,3 @@ def extract_header(buffer):
     status = int.from_bytes(buffer[0:1], byteorder='big')
     expected_size = int.from_bytes(buffer[1:5], byteorder='big')
     return status, expected_size
-

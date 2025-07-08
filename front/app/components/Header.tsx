@@ -1,9 +1,13 @@
 import { Disclosure } from "@headlessui/react";
 import React from "react";
+import { Settings } from "lucide-react";
+import { Button } from "./ui/button";
 
-type Props = {};
+type Props = {
+  onSettingsClick: () => void;
+};
 
-export const Header: React.FC<Props> = () => {
+export const Header: React.FC<Props> = ({ onSettingsClick }) => {
   return (
     <Disclosure as="nav" className="bg-background shadow-md border-b">
       <div className="mx-auto px-6">
@@ -27,6 +31,17 @@ export const Header: React.FC<Props> = () => {
               </a>
             </div>
           </div>
+
+          {/* Settings button on the right side */}
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={onSettingsClick}
+            title="Settings"
+            className="cursor-pointer px-2 py-5 my-auto"
+          >
+            <Settings className="size-6" />
+          </Button>
         </div>
       </div>
     </Disclosure>
